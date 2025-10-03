@@ -1,6 +1,21 @@
+# Environment variables
 .env
 **/.env
-*.env
-backend/snippets.db
-backend/*.pkl
-backend/github_snippets_sample.csv
+
+# Python virtual environment
+venv/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Large data files
+snippets.db
+github_snippets_sample.csv
+
+# Saved model files
+*.pkl
+
+# General cache and log files
+__pycache__/
+*.log
