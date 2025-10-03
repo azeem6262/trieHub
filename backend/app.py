@@ -11,149 +11,149 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# --- Enhanced Text Preprocessing Function ---
-def enhanced_preprocessing(text):
-    """Enhanced text preprocessing for better model accuracy"""
-    if not text or pd.isna(text):
-        return ""
-    
-    text = str(text)
-    
-    # Remove excessive whitespace and normalize
-    text = re.sub(r'\s+', ' ', text)
-    
-    # Keep important programming symbols but normalize
-    text = re.sub(r'[{}();,]', lambda m: f' {m.group()} ', text)
-    
-    # Handle common programming patterns
-    text = re.sub(r'(\w+)\s*\(', r'\1 (', text)  # function calls
-    text = re.sub(r'(\w+)\s*\[', r'\1 [', text)  # array access
-    text = re.sub(r'(\w+)\s*\{', r'\1 {', text)  # object/block start
-    
-    # Normalize numbers and strings
-    text = re.sub(r'\b\d+\b', ' NUM ', text)
-    text = re.sub(r'"[^"]*"', ' STRING ', text)
-    text = re.sub(r"'[^']*'", ' STRING ', text)
-    
-    # Handle imports and includes
-    text = re.sub(r'(import|from|include|require)\s+\w+', r'\1 MODULE', text)
-    
-    return text.strip()
+# --- MODEL LOADING & GITHUB CLIENT (No changes needed here) ---
+# ... (your existing model loading and GitHub client code) ...
 
-# --- Enhanced Model Loading ---
-try:
-    # Try to load the enhanced model first
-    vectorizer = joblib.load('enhanced_vectorizer.pkl')
-    model = joblib.load('enhanced_language_classifier.pkl')
-    print("✅ Enhanced model and vectorizer loaded successfully.")
-    model_type = "enhanced_ensemble"
-except FileNotFoundError:
-    try:
-        # Fallback to original model
-        vectorizer = joblib.load('vectorizer.pkl')
-        model = joblib.load('language_classifier.pkl')
-        print("✅ Original model and vectorizer loaded successfully.")
-        model_type = "original"
-    except FileNotFoundError:
-        vectorizer = None
-        model = None
-        model_type = "none"
-        print("🔴 WARNING: No model files found.")
+# Initialize GitHub client from environment token if available
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+github_client = Github(GITHUB_TOKEN) if GITHUB_TOKEN else Github()
 
-# --- GitHub Client (keep as is) ---
-auth_token = os.getenv("GITHUB_TOKEN")
-g = Github(auth_token)
+# --- NEW: HELPER FUNCTIONS FOR VISUALIZATION DATA ---
+def build_language_counts(predictions):
+    """Counts the occurrences of each predicted language."""
+    counts = {}
+    for p in predictions:
+        lang = p['predicted_language']
+        counts[lang] = counts.get(lang, 0) + 1
+    return counts
 
-# --- NEW: Recursive helper function ---
+def build_tree_from_paths(predictions, root_name):
+    """Build a single-root hierarchical tree for react-d3-tree.
+
+    Output shape:
+    {
+      name: <root_name>,
+      children: [ ... ],
+    }
+    - Directories appear before files in each branch
+    - Files carry an attributes.language field
+    - File nodes have no children
+    """
+    # Build a nested dict structure first
+    tree = {}
+    for item in predictions:
+        parts = [p for p in item['file'].split('/') if p]
+        current_level = tree
+        for i, part in enumerate(parts):
+            is_file = (i == len(parts) - 1)
+            if part not in current_level:
+                current_level[part] = {} if not is_file else {"lang": item['predicted_language']}
+            current_level = current_level[part]
+
+    def is_file_node(node_dict):
+        return "lang" in node_dict
+
+    # Format into react-d3-tree structure with directory-first sorting
+    def format_tree(name, node_dict):
+        if is_file_node(node_dict):
+            return {"name": name, "attributes": {"language": node_dict["lang"], "type": "file"}}
+        # Separate dirs and files
+        dir_keys = [k for k, v in node_dict.items() if not is_file_node(v)]
+        file_keys = [k for k, v in node_dict.items() if is_file_node(v)]
+        dir_keys.sort()
+        file_keys.sort()
+        children = [format_tree(k, node_dict[k]) for k in dir_keys] + [format_tree(k, node_dict[k]) for k in file_keys]
+        return {"name": name, "attributes": {"type": "directory"}, "children": children}
+
+    return format_tree(root_name, tree)
+
+
+# --- YOUR EXISTING HELPER AND PREDICT ENDPOINT ---
+
+EXTENSION_TO_LANGUAGE = {
+    ".py": "Python",
+    ".js": "JavaScript",
+    ".ts": "TypeScript",
+    ".tsx": "TypeScript",
+    ".jsx": "JavaScript",
+    ".java": "Java",
+    ".rb": "Ruby",
+    ".go": "Go",
+    ".rs": "Rust",
+    ".php": "PHP",
+    ".cpp": "C++",
+    ".cc": "C++",
+    ".cxx": "C++",
+    ".c": "C",
+    ".cs": "C#",
+    ".kt": "Kotlin",
+    ".swift": "Swift",
+    ".m": "Objective-C",
+    ".mm": "Objective-C++",
+    ".scala": "Scala",
+    ".r": "R",
+    ".jl": "Julia",
+    ".sh": "Shell",
+    ".ps1": "PowerShell",
+    ".sql": "SQL",
+    ".html": "HTML",
+    ".css": "CSS",
+    ".scss": "SCSS",
+    ".md": "Markdown",
+    ".yml": "YAML",
+    ".yaml": "YAML",
+    ".toml": "TOML",
+    ".json": "JSON",
+}
+
 def get_repo_contents_recursive(repo, path=""):
-    """
-    Recursively fetches all files from a repository, traversing into subdirectories.
-    """
-    try:
-        contents = repo.get_contents(path)
-        all_files = []
-        for content_file in contents:
-            if content_file.type == "dir":
-                # If it's a directory, recurse into it and extend the list
-                all_files.extend(get_repo_contents_recursive(repo, content_file.path))
-            else:
-                # If it's a file, add it to the list
-                all_files.append(content_file)
-        return all_files
-    except RateLimitExceededException:
-        raise # Re-throw the exception to be caught by the main handler
-    except Exception:
-        # Ignore errors from non-existent paths or other issues
-        return []
+    """Return a flat list of ContentFile objects for all files in the repo under path."""
+    contents_stack = list(repo.get_contents(path))
+    all_files = []
+    while contents_stack:
+        content = contents_stack.pop(0)
+        if content.type == "dir":
+            contents_stack.extend(repo.get_contents(content.path))
+        else:
+            all_files.append(content)
+    return all_files
 
 @app.route('/predict', methods=['GET'])
 def predict_repo_languages():
-    if not model or not vectorizer:
-        return jsonify({"error": "Model not loaded"}), 500
-
-    repo_path = request.args.get('repo')
-    if not repo_path:
-        return jsonify({"error": "Repository path is required"}), 400
-
     try:
-        repo = g.get_repo(repo_path)
-        
-        # --- FIX: Call the new recursive function ---
+        # Read repo path from query string, e.g., /predict?repo=owner/name
+        repo_path = request.args.get("repo")
+        if not repo_path:
+            return jsonify({"error": "Missing required query parameter: repo (format: owner/name)"}), 400
+
+        repo = github_client.get_repo(repo_path)
         all_repo_files = get_repo_contents_recursive(repo)
         
+        # Build predictions from file extensions
         language_predictions = []
-        for file_content in all_repo_files:
-            # Skip very large files to avoid long processing times
-            if file_content.size > 100000: continue
-            
-            try:
-                content_text = file_content.decoded_content.decode('utf-8')
-                
-                # Apply enhanced preprocessing if using enhanced model
-                if model_type == "enhanced_ensemble":
-                    processed_content = enhanced_preprocessing(content_text)
-                else:
-                    processed_content = content_text
-                
-                content_tfidf = vectorizer.transform([processed_content])
-                prediction = model.predict(content_tfidf)
-                
-                # Get prediction confidence if available
-                confidence = None
-                if hasattr(model, 'predict_proba'):
-                    proba = model.predict_proba(content_tfidf)
-                    confidence = float(proba.max())
-                
-                prediction_data = {
-                    "file": file_content.path,
-                    "predicted_language": prediction[0],
-                    "model_type": model_type
-                }
-                
-                if confidence is not None:
-                    prediction_data["confidence"] = confidence
-                
-                language_predictions.append(prediction_data)
-                
-            except Exception as e:
-                # Skip files that can't be decoded or processed
-                print(f"Skipping file {file_content.path}: {str(e)}")
-                continue
+        MAX_FILES = 1000  # safety cap
+        for f in all_repo_files[:MAX_FILES]:
+            _, ext = os.path.splitext(f.path.lower())
+            predicted = EXTENSION_TO_LANGUAGE.get(ext, "Unknown")
+            language_predictions.append({
+                "file": f.path,
+                "predicted_language": predicted,
+            })
 
+        # --- FIX: Generate data for visualizations ---
+        language_counts = build_language_counts(language_predictions)
+        file_tree = build_tree_from_paths(language_predictions, root_name=repo.full_name)
+        
         return jsonify({
             "repository": repo.full_name,
             "predictions": language_predictions,
-            "model_info": {
-                "type": model_type,
-                "total_files_processed": len(language_predictions),
-                "avg_confidence": sum(p.get("confidence", 0) for p in language_predictions) / len(language_predictions) if language_predictions else 0
-            }
+            "language_counts": language_counts, # Data for the pie chart
+            "file_tree": file_tree           # Data for the interactive tree
         })
 
-    except RateLimitExceededException:
-        return jsonify({"error": "GitHub API rate limit exceeded. Please try again later."}), 429
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
