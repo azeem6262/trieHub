@@ -224,7 +224,7 @@ export default function Home() {
                   <h2 className="text-2xl font-bold mb-4 text-purple-300">File Predictions</h2>
                   <div className="overflow-y-auto max-h-96 pr-4">
                     <ul className="space-y-2">
-                      {repoData.predictions.map((p, index) => (
+                      {repoData.predictions.map((p:Prediction, index: number) => (
                         <li key={index} className="flex justify-between items-center bg-black/60 p-3 rounded-md border border-purple-800/30">
                           <span className="font-mono text-gray-300 break-all">{p.file}</span>
                           <span className="font-semibold ml-4 flex-shrink-0 inline-flex items-center gap-2">

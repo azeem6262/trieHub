@@ -5,7 +5,7 @@ export async function predictRepo(repoPath: string) {
   let payload: any = null;
   try {
     payload = await response.json();
-  } catch (e) {
+  } catch (e: any) {
     // Non-JSON error from backend
     if (!response.ok) {
       throw new Error(`Request failed with status ${response.status}`);
