@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo, useRef } from 'react';
 import { predictRepo } from '../lib/api';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, PieLabelRenderProps } from 'recharts';
 import Tree from 'react-d3-tree';
 
 // --- Type Definitions for our data ---
@@ -70,9 +70,9 @@ export default function Home() {
 
     try {
       const data = await predictRepo(repoPath);
-      setRepoData(data); // Set the entire data object
-    } catch (err: any) {
-      setError(err.message);
+      setRepoData(data as RepoData); // Set the entire data object
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
     }
     setIsLoading(false);
   };
@@ -94,7 +94,7 @@ export default function Home() {
 
 
   // Custom renderer for react-d3-tree nodes
-  const renderCustomNode = ({ nodeDatum, toggleNode }: any) => {
+  const renderCustomNode = ({ nodeDatum, toggleNode }: { nodeDatum: FileNode; toggleNode: () => void }) => {
     const isDirectory = nodeDatum?.attributes?.type === 'directory';
     const language = nodeDatum?.attributes?.language as string | undefined;
     const color = language ? languageColorMap[language] ?? '#999' : '#6B7280';
@@ -201,7 +201,7 @@ export default function Home() {
                           cx="50%"
                           cy="50%"
                           outerRadius={100}
-                          label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          label={(props: PieLabelRenderProps) => `${props.name}: ${((props.percent as number) * 100).toFixed(0)}%`}
                         >
                           {languageData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={languageColorMap[entry.name]} />
@@ -209,7 +209,7 @@ export default function Home() {
                         </Pie>
                         <Tooltip
                           contentStyle={{ backgroundColor: '#ffffff', border: 'none' }}
-                          formatter={(value: any, name: any) => [value, name]}
+                          formatter={(value: number, name: string) => [value, name]}
                         />
                         <Legend />
                       </PieChart>
@@ -257,7 +257,7 @@ export default function Home() {
                         renderCustomNodeElement={renderCustomNode}
                         zoomable
                         initialDepth={initialDepth}
-                        zoom={zoom as any}
+                        zoom={zoom}
                       />
                     </div>
                   ) : (
