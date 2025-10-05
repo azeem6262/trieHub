@@ -1,20 +1,15 @@
+// In frontend/lib/api.ts
+
 export async function predictRepo(repoPath: string) {
-  const qs = encodeURIComponent(repoPath.trim());
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5001';
-  const url = `${baseUrl}/predict?repo=${qs}`;
-  const response = await fetch(url);
-  let payload: unknown = null;
-  try {
-    payload = await response.json();
-  } catch {
-    // Non-JSON error from backend
-    if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
-    }
-    return payload;
-  }
+  // Use a relative path to call the Next.js API route
+  const response = await fetch(`/api/predict?repo=${repoPath}`);
+  
+  const data = await response.json();
+
   if (!response.ok) {
-    throw new Error((payload as { error?: string })?.error || `Request failed with status ${response.status}`);
+    // If the server returns an error, throw it to be caught by the UI
+    throw new Error(data.error || 'Failed to fetch prediction data');
   }
-  return payload;
+
+  return data;
 }
