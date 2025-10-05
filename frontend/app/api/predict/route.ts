@@ -19,8 +19,6 @@ export async function GET(request: Request) {
   try {
     const [owner, repo] = repoPath.split('/');
     
-    // Note: Fetching full file content is very slow and expensive.
-    // For a serverless function, it's better to get the language breakdown directly.
     const { data: languages } = await octokit.repos.listLanguages({
       owner,
       repo,
@@ -31,7 +29,12 @@ export async function GET(request: Request) {
       language_counts: languages,
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) { // <-- FIX: Use 'unknown' for better type safety
+    let errorMessage = "An unknown error occurred";
+    // Check if the error is an actual Error object before using its properties
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
