@@ -245,7 +245,7 @@ export default function Home() {
                         translate={{ x: translateX, y: translateY }}
                         nodeSize={{ x: nodeWidth, y: nodeHeight }}
                         separation={{ siblings: sepSiblings, nonSiblings: sepNonSiblings }}
-                        renderCustomNodeElement={renderCustomNode as any}
+                        renderCustomNodeElement={renderCustomNode}
                         zoomable
                         initialDepth={initialDepth}
                         zoom={zoom}
