@@ -1,27 +1,29 @@
-# Ignore virtual environment
+# Ignore everything except essential files
+*
+
+# But include these essential files
+!app.py
+!requirements.txt
+!vercel.json
+!*.py
+
+# Explicitly ignore large folders and files
 venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-
-# Ignore development files
-*.ipynb
-*.log
-.DS_Store
-.env.local
-
-# Ignore large model files that aren't needed (keep only the ones we use)
-joblib_*.pkl
-astype_copy.pkl
-
-# Keep only these model files:
-# enhanced_vectorizer.pkl
-# language_classifier.pkl  
-# vectorizer.pkl
-
-# Ignore git and other dev files
-.git/
-.gitignore
-README.md
+**/site-packages/
+**/*.pkl
+**/*.ipynb
+**/*.log
+**/*.dll
+**/*.pyd
+**/*.exe
+**/*.js
+**/*.css
+**/*.map
+**/*.svg
+**/*.ttf
+**/*.eot
+**/*.dat
+**/*.npz
+**/*.npy
+**/*.gz
+**/*.tar
