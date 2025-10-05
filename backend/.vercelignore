@@ -1,0 +1,27 @@
+# Ignore virtual environment
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Ignore development files
+*.ipynb
+*.log
+.DS_Store
+.env.local
+
+# Ignore large model files that aren't needed (keep only the ones we use)
+joblib_*.pkl
+astype_copy.pkl
+
+# Keep only these model files:
+# enhanced_vectorizer.pkl
+# language_classifier.pkl  
+# vectorizer.pkl
+
+# Ignore git and other dev files
+.git/
+.gitignore
+README.md

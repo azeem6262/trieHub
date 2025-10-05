@@ -11,12 +11,28 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
+# Initialize with error handling
+try:
+    # Try to load models (optional for basic functionality)
+    # enhanced_vectorizer = joblib.load('enhanced_vectorizer.pkl')
+    # language_classifier = joblib.load('language_classifier.pkl')
+    # vectorizer = joblib.load('vectorizer.pkl')
+    MODELS_LOADED = False  # Set to True if models are available
+except Exception as e:
+    print(f"Warning: Could not load ML models: {e}")
+    MODELS_LOADED = False
+
 # --- MODEL LOADING & GITHUB CLIENT (No changes needed here) ---
 # ... (your existing model loading and GitHub client code) ...
 
 # Initialize GitHub client from environment token if available
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-github_client = Github(GITHUB_TOKEN) if GITHUB_TOKEN else Github()
+if GITHUB_TOKEN:
+    github_client = Github(GITHUB_TOKEN)
+    print("GitHub client initialized with token (higher rate limits)")
+else:
+    github_client = Github()
+    print("GitHub client initialized without token (limited rate limits)")
 
 # --- NEW: HELPER FUNCTIONS FOR VISUALIZATION DATA ---
 def build_language_counts(predictions):
@@ -130,8 +146,17 @@ def predict_repo_languages():
         if not repo_path:
             return jsonify({"error": "Missing required query parameter: repo (format: owner/name)"}), 400
 
-        repo = github_client.get_repo(repo_path)
-        all_repo_files = get_repo_contents_recursive(repo)
+        try:
+            repo = github_client.get_repo(repo_path)
+            all_repo_files = get_repo_contents_recursive(repo)
+        except RateLimitExceededException:
+            return jsonify({
+                "error": "GitHub API rate limit exceeded. Please try again later or add a GITHUB_TOKEN environment variable for higher limits."
+            }), 429
+        except Exception as github_error:
+            return jsonify({
+                "error": f"GitHub API error: {str(github_error)}"
+            }), 400
         
         # Build predictions from file extensions
         language_predictions = []
