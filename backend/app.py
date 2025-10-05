@@ -118,6 +118,10 @@ def get_repo_contents_recursive(repo, path=""):
             all_files.append(content)
     return all_files
 
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({"status": "OK", "message": "Backend is running"}), 200
+
 @app.route('/predict', methods=['GET'])
 def predict_repo_languages():
     try:
@@ -154,6 +158,9 @@ def predict_repo_languages():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+# Export the app for Vercel
+application = app
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
